@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân tích KPI Doanh Thu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .filter-btn.active {
+            box-shadow: 0 0 0 0.2rem rgba(39, 174, 96, 0.25);
+        }
+        
+        .table th {
+            background-color: #ecf0f1;
+            font-weight: 600;
+        }
+        
+        .growth-positive {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        
+        .growth-negative {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background-color: #f8f9fa;
+            transition: all 0.3s;
+            cursor: pointer;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .file-upload-area:hover {
+            border-color: var(--secondary-color);
+            background-color: #e8f4fc;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: var(--success-color);
+            background-color: #e8f6f0;
+        }
+        
+        .excluded-row {
+            background-color: #ffeaea !important;
+            text-decoration: line-through;
+            color: #999;
+        }
+        
+        .kpi-summary {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .kpi-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .file-info {
+            background-color: #e8f6f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            color: var(--secondary-color);
+        }
+        
+        .error-message {
+            color: var(--danger-color);
+            background-color: #ffeaea;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .search-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .customer-tag {
+            display: inline-block;
+            background-color: #e9ecef;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 13px;
+        }
+        
+        .customer-tag .remove-tag {
+            cursor: pointer;
+            margin-left: 8px;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .multi-select-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .multi-select-dropdown {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .multi-select-option {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        
+        .multi-select-option:hover {
+            background-color: #e9ecef;
+        }
+        
+        .multi-select-option.selected {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .search-input-wrapper i {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        
+        .search-input-wrapper input {
+            padding-left: 35px;
+            width: 100%;
+        }
+        
+        .selected-customers-container {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 5px;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        
+        .selected-count {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .info-badge {
+            background-color: #e7f3ff;
+            color: #0066cc;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        
+        .filter-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center" style="color: var(--primary-color);">
+                    <i class="fas fa-chart-line me-2"></i>BẢN PHÂN TÍCH CHỈ SỐ KPI KINH DOANH
+                </h1>
+                <p class="text-center text-muted">Phân tích doanh thu và tăng trưởng theo nhân viên từ dữ liệu đơn hàng ERP</p>
+            </div>
+        </div>
+        
+        <!-- File Upload Section -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-file-excel me-2"></i>Đơn hàng kỳ này
+                    </div>
+                    <div class="card-body">
+                        <div id="current-period-upload" class="file-upload-area">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3" style="color: var(--secondary-color);"></i>
+                            <h5>Kéo thả file Excel kỳ này vào đây</h5>
+                            <p class="text-muted">Hoặc click để chọn file</p>
+                            <input type="file" id="current-period-file" class="d-none" accept=".xlsx, .xls, .csv">
+                            <button class="btn btn-primary mt-2" id="current-period-btn">
+                                <i class="fas fa-upload me-1"></i> Chọn file
+                            </button>
+                        </div>
+                        <div id="current-period-info" class="file-info">
+                            <i class="fas fa-file-excel text-success me-2"></i>
+                            <span id="current-period-filename"></span>
+                            <span id="current-period-rowcount" class="badge bg-info ms-2"></span>
+                            <div class="loading mt-2" id="current-period-loading">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý file...
+                            </div>
+                        </div>
+                        <div id="current-period-error" class="error-message"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-file-excel me-2"></i>Đơn hàng kỳ trước
+                    </div>
+                    <div class="card-body">
+                        <div id="previous-period-upload" class="file-upload-area">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3" style="color: var(--secondary-color);"></i>
+                            <h5>Kéo thả file Excel kỳ trước vào đây</h5>
+                            <p class="text-muted">Hoặc click để chọn file</p>
+                            <input type="file" id="previous-period-file" class="d-none" accept=".xlsx, .xls, .csv">
+                            <button class="btn btn-primary mt-2" id="previous-period-btn">
+                                <i class="fas fa-upload me-1"></i> Chọn file
+                            </button>
+                        </div>
+                        <div id="previous-period-info" class="file-info">
+                            <i class="fas fa-file-excel text-success me-2"></i>
+                            <span id="previous-period-filename"></span>
+                            <span id="previous-period-rowcount" class="badge bg-info ms-2"></span>
+                            <div class="loading mt-2" id="previous-period-loading">
+                                <i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý file...
+                            </div>
+                        </div>
+                        <div id="previous-period-error" class="error-message"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filters and Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-sliders-h me-2"></i>Bộ lọc và Thao tác
+                    </div>
+                    <div class="card-body">
+                        <!-- Filter Info -->
+                        <div id="filter-info" class="filter-info" style="display: none;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <span id="filter-info-text"></span>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="search-section">
+                                    <h6><i class="fas fa-users me-2"></i>Tìm kiếm và chọn khách hàng</h6>
+                                    
+                                    <!-- Search input -->
+                                    <div class="search-input-wrapper">
+                                        <i class="fas fa-search"></i>
+                                        <input type="text" id="customer-search-input" class="form-control" 
+                                               placeholder="Tìm kiếm khách hàng...">
+                                    </div>
+                                    
+                                    <!-- Multi-select dropdown -->
+                                    <div class="multi-select-container">
+                                        <select multiple class="form-control multi-select-dropdown" id="customer-select" 
+                                                size="5" style="display: none;">
+                                            <!-- Customer options will be populated dynamically -->
+                                        </select>
+                                        <div id="customer-select-display" class="multi-select-dropdown">
+                                            <!-- Options will be populated here -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Action buttons -->
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button class="btn btn-primary btn-sm flex-fill" type="button" id="select-customers-btn">
+                                            <i class="fas fa-check me-1"></i> Áp dụng lọc
+                                        </button>
+                                        <button class="btn btn-outline-primary btn-sm flex-fill" type="button" id="select-all-customers-btn">
+                                            <i class="fas fa-check-double me-1"></i> Chọn tất cả
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm flex-fill" type="button" id="clear-customers-btn">
+                                            <i class="fas fa-times me-1"></i> Xóa lọc
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Selected customers display -->
+                                    <div class="selected-customers-container" id="selected-customers-container">
+                                        <div id="selected-customers-tags">
+                                            <span class="text-muted">Chưa có khách hàng nào được chọn để loại trừ</span>
+                                        </div>
+                                    </div>
+                                    <div class="selected-count">
+                                        Đang loại trừ: <span id="selected-customers-count">0</span> khách hàng
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row align-items-center">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="search-input" class="form-control" placeholder="Tìm kiếm trong bảng...">
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-success filter-btn active" data-filter="all">
+                                        <i class="fas fa-layer-group me-1"></i> Tất cả
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success filter-btn" data-filter="drug">
+                                        <i class="fas fa-pills me-1"></i> Đặt thuốc
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success filter-btn" data-filter="non-drug">
+                                        <i class="fas fa-box me-1"></i> Không thuốc
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-success me-2" id="analyze-btn" disabled>
+                                    <i class="fas fa-chart-bar me-1"></i> Phân tích KPI
+                                </button>
+                                <button class="btn btn-danger" id="reset-btn">
+                                    <i class="fas fa-redo me-1"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- KPI Summary -->
+        <div class="row mb-4" id="kpi-summary" style="display: none;">
+            <div class="col-md-3">
+                <div class="kpi-summary text-center">
+                    <h6>Tổng doanh thu kỳ này</h6>
+                    <div class="kpi-value" id="total-current-revenue">0</div>
+                    <div id="current-revenue-info" class="info-badge mt-1" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-summary text-center">
+                    <h6>Tổng doanh thu kỳ trước</h6>
+                    <div class="kpi-value" id="total-previous-revenue">0</div>
+                    <div id="previous-revenue-info" class="info-badge mt-1" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-summary text-center">
+                    <h6>Tăng trưởng tổng</h6>
+                    <div class="kpi-value" id="total-growth">0%</div>
+                    <div id="growth-info" class="info-badge mt-1" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-summary text-center">
+                    <h6>Số nhân viên</h6>
+                    <div class="kpi-value" id="employee-count">0</div>
+                    <div id="employee-info" class="info-badge mt-1" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Display -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-table me-2"></i>Dữ liệu đơn hàng kỳ này
+                            <span class="info-badge" id="current-table-info"></span>
+                        </div>
+                        <div class="text-muted">
+                            <span id="selected-count">0</span> dòng được chọn / <span id="total-count">0</span> dòng
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="data-table" class="table table-hover table-striped" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th width="50px">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="select-all">
+                                            </div>
+                                        </th>
+                                        <th>Mã</th>
+                                        <th>Khách hàng</th>
+                                        <th>Nhân viên</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Thuốc?</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    <!-- Data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Previous Period Info -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-history me-2"></i>Thông tin dữ liệu kỳ trước
+                        <span class="info-badge" id="previous-table-info"></span>
+                    </div>
+                    <div class="card-body">
+                        <div id="previous-period-stats" class="row">
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-file-invoice-dollar text-success me-2"></i>
+                                    <div>
+                                        <div class="text-muted small">Tổng doanh thu</div>
+                                        <div id="previous-total-revenue" class="fw-bold">0 VND</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-user-friends text-primary me-2"></i>
+                                    <div>
+                                        <div class="text-muted small">Số nhân viên</div>
+                                        <div id="previous-employee-count" class="fw-bold">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-filter text-warning me-2"></i>
+                                    <div>
+                                        <div class="text-muted small">Đang loại trừ</div>
+                                        <div id="previous-excluded-count" class="fw-bold">0 khách hàng</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- KPI Analysis Results -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-pie me-2"></i>Kết quả phân tích KPI theo nhân viên
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="kpi-table" class="table table-hover" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Nhân viên</th>
+                                        <th>Doanh thu kỳ này</th>
+                                        <th>Doanh thu kỳ trước</th>
+                                        <th>Tăng trưởng</th>
+                                        <th>Phần trăm tăng trưởng</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kpi-body">
+                                    <!-- KPI data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Khởi tạo Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAytujYZAr8jNDeeuXj66iz-1b4dwzZWE",
+            authDomain: "quanlykh-8fe2b.firebaseapp.com",
+            projectId: "quanlykh-8fe2b",
+            storageBucket: "quanlykh-8fe2b.firebasestorage.app",
+            messagingSenderId: "285582822541",
+            appId: "1:285582822541:web:1465fe68cce97bd830a6c4"
+        };
+
+        // Khởi tạo Firebase
+        let database;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log("Firebase đã được khởi tạo thành công");
+        } catch (error) {
+            console.error("Lỗi khởi tạo Firebase:", error);
+            database = null;
+        }
+        
+        // Biến toàn cục
+        let currentPeriodData = [];
+        let previousPeriodData = [];
+        let filteredData = [];
+        let selectedRows = new Set(); // Lưu các dòng đã tích chọn để loại trừ
+        let currentFilter = 'all'; // all, drug, non-drug
+        let selectedCustomers = new Set(); // Lưu các khách hàng đã chọn để loại trừ
+        let allCustomers = []; // Tất cả khách hàng có trong dữ liệu
+        let filteredCustomers = []; // Khách hàng sau khi lọc
+        
+        // Khởi tạo ứng dụng
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            loadDataFromFirebase();
+            setupCustomerSearch();
+        });
+        
+        function initializeEventListeners() {
+            // Xử lý upload file kỳ này
+            const currentUploadArea = document.getElementById('current-period-upload');
+            const currentFileInput = document.getElementById('current-period-file');
+            const currentFileBtn = document.getElementById('current-period-btn');
+            
+            currentUploadArea.addEventListener('click', () => currentFileInput.click());
+            currentFileBtn.addEventListener('click', () => currentFileInput.click());
+            currentFileInput.addEventListener('change', function(e) {
+                handleFileSelect('current', e);
+            });
+            
+            // Xử lý upload file kỳ trước
+            const previousUploadArea = document.getElementById('previous-period-upload');
+            const previousFileInput = document.getElementById('previous-period-file');
+            const previousFileBtn = document.getElementById('previous-period-btn');
+            
+            previousUploadArea.addEventListener('click', () => previousFileInput.click());
+            previousFileBtn.addEventListener('click', () => previousFileInput.click());
+            previousFileInput.addEventListener('change', function(e) {
+                handleFileSelect('previous', e);
+            });
+            
+            // Xử lý kéo thả file
+            setupDragAndDrop('current-period-upload', 'current-period-file');
+            setupDragAndDrop('previous-period-upload', 'previous-period-file');
+            
+            // Xử lý nút phân tích
+            document.getElementById('analyze-btn').addEventListener('click', analyzeKPI);
+            
+            // Xử lý nút reset
+            document.getElementById('reset-btn').addEventListener('click', resetApp);
+            
+            // Xử lý tìm kiếm trong bảng
+            document.getElementById('search-input').addEventListener('input', filterTable);
+            
+            // Xử lý bộ lọc thuốc
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.getAttribute('data-filter');
+                    filterTable();
+                    updateFilterInfo();
+                });
+            });
+            
+            // Xử lý chọn tất cả
+            document.getElementById('select-all').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.row-checkbox');
+                const isChecked = this.checked;
+                
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    const index = parseInt(checkbox.getAttribute('data-index'));
+                    const row = checkbox.closest('tr');
+                    
+                    if (isChecked) {
+                        selectedRows.add(index);
+                        row.classList.add('excluded-row');
+                    } else {
+                        selectedRows.delete(index);
+                        row.classList.remove('excluded-row');
+                    }
+                });
+                
+                updateSelectedCount();
+                if (database) {
+                    saveDataToFirebase('selectedRows', Array.from(selectedRows));
+                }
+            });
+            
+            // Xử lý chọn khách hàng
+            document.getElementById('select-customers-btn').addEventListener('click', applyCustomerFilter);
+            
+            // Xử lý chọn tất cả khách hàng
+            document.getElementById('select-all-customers-btn').addEventListener('click', selectAllCustomers);
+            
+            // Xử lý xóa chọn khách hàng
+            document.getElementById('clear-customers-btn').addEventListener('click', clearCustomerFilter);
+        }
+        
+        function setupCustomerSearch() {
+            const searchInput = document.getElementById('customer-search-input');
+            const displayDiv = document.getElementById('customer-select-display');
+            
+            searchInput.addEventListener('input', function() {
+                filterCustomerOptions(this.value);
+            });
+            
+            searchInput.addEventListener('focus', function() {
+                if (allCustomers.length > 0) {
+                    filterCustomerOptions(this.value);
+                }
+            });
+        }
+        
+        function setupDragAndDrop(dropAreaId, fileInputId) {
+            const dropArea = document.getElementById(dropAreaId);
+            const fileInput = document.getElementById(fileInputId);
+            
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.classList.add('dragover');
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.classList.remove('dragover');
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.classList.remove('dragover');
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    
+                    // Tạo sự kiện change và kích hoạt
+                    const event = new Event('change', { bubbles: true });
+                    fileInput.dispatchEvent(event);
+                }
+            });
+        }
+        
+        function handleFileSelect(period, event) {
+            const file = event.target.files[0];
+            if (!file) {
+                showError(period, 'Không có file được chọn');
+                return;
+            }
+            
+            // Kiểm tra định dạng file
+            const validExtensions = ['.xlsx', '.xls', '.csv'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!validExtensions.includes(fileExtension)) {
+                showError(period, 'File không đúng định dạng. Vui lòng chọn file Excel (.xlsx, .xls) hoặc CSV');
+                return;
+            }
+            
+            // Hiển thị trạng thái đang xử lý
+            showLoading(period, true);
+            hideError(period);
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    let jsonData;
+                    
+                    if (fileExtension === '.csv') {
+                        // Xử lý file CSV
+                        const csvText = new TextDecoder('utf-8').decode(data);
+                        jsonData = parseCSV(csvText);
+                    } else {
+                        // Xử lý file Excel
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    }
+                    
+                    // Kiểm tra dữ liệu
+                    if (!jsonData || jsonData.length < 2) {
+                        showError(period, 'File không có dữ liệu hoặc định dạng không đúng');
+                        showLoading(period, false);
+                        return;
+                    }
+                    
+                    // Chuyển đổi dữ liệu JSON thành mảng đối tượng
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    
+                    const formattedData = rows.map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            if (header && header.trim() !== '') {
+                                let value = row[index];
+                                
+                                // Xử lý giá trị số
+                                if (header === 'Tổng tiền' || header === 'Số lượng' || header === 'Số tiền nợ') {
+                                    value = parseFloat(value) || 0;
+                                }
+                                
+                                // Xử lý giá trị boolean cho cột "Thuốc?"
+                                if (header === 'Thuốc?') {
+                                    value = value === true || value === 'TRUE' || value === 'true' || 
+                                            value === 1 || value === '1' || value === 'Có' || value === 'có' ||
+                                            value === 'Yes' || value === 'yes';
+                                }
+                                
+                                // Xử lý các cột boolean khác
+                                if (header === 'Thu hộ?' || header === 'Ký gửi?' || 
+                                    header === 'Hóa đơn VAT một phần?' || header === 'Hóa đơn VAT toàn phần?' || 
+                                    header === 'Xác nhận?' || header === 'Duyệt?') {
+                                    value = value === true || value === 'TRUE' || value === 'true' || 
+                                            value === 1 || value === '1' || value === 'Có' || value === 'có';
+                                }
+                                
+                                obj[header] = value || '';
+                            }
+                        });
+                        return obj;
+                    }).filter(row => {
+                        // Lọc các dòng có ít nhất một giá trị quan trọng
+                        return row['Mã'] || row['Khách hàng'] || row['Nhân viên'];
+                    });
+                    
+                    if (period === 'current') {
+                        currentPeriodData = formattedData;
+                        displayCurrentData();
+                        updateCustomerList(); // Cập nhật danh sách khách hàng
+                        showFileInfo(period, file.name, formattedData.length);
+                        
+                        if (database) {
+                            saveDataToFirebase('currentPeriodData', currentPeriodData);
+                        }
+                    } else {
+                        previousPeriodData = formattedData;
+                        showFileInfo(period, file.name, formattedData.length);
+                        updatePreviousPeriodStats();
+                        
+                        if (database) {
+                            saveDataToFirebase('previousPeriodData', previousPeriodData);
+                        }
+                    }
+                    
+                    // Kiểm tra xem đã có đủ dữ liệu để phân tích chưa
+                    if (currentPeriodData.length > 0 && previousPeriodData.length > 0) {
+                        document.getElementById('analyze-btn').disabled = false;
+                    }
+                    
+                } catch (error) {
+                    console.error('Lỗi xử lý file:', error);
+                    showError(period, 'Lỗi xử lý file: ' + error.message);
+                } finally {
+                    showLoading(period, false);
+                }
+            };
+            
+            reader.onerror = function() {
+                showError(period, 'Lỗi đọc file. Vui lòng thử lại.');
+                showLoading(period, false);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) return [];
+            
+            // Xác định dấu phân cách
+            const firstLine = lines[0];
+            const delimiter = firstLine.includes(';') ? ';' : ',';
+            
+            // Parse header và dữ liệu
+            const result = lines.map(line => {
+                const row = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === '"' && (i === 0 || line[i-1] !== '\\')) {
+                        inQuotes = !inQuotes;
+                    } else if (char === delimiter && !inQuotes) {
+                        row.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                
+                row.push(current);
+                return row.map(cell => cell.replace(/^"|"$/g, '').trim());
+            });
+            
+            return result;
+        }
+        
+        function updateCustomerList() {
+            // Lấy tất cả khách hàng duy nhất từ dữ liệu hiện tại
+            const uniqueCustomers = new Set();
+            currentPeriodData.forEach(row => {
+                if (row['Khách hàng'] && row['Khách hàng'].toString().trim() !== '') {
+                    uniqueCustomers.add(row['Khách hàng'].toString().trim());
+                }
+            });
+            
+            // Sắp xếp theo tên
+            allCustomers = Array.from(uniqueCustomers).sort();
+            filteredCustomers = [...allCustomers];
+            
+            // Cập nhật hiển thị
+            renderCustomerOptions();
+        }
+        
+        function renderCustomerOptions() {
+            const displayDiv = document.getElementById('customer-select-display');
+            const selectElement = document.getElementById('customer-select');
+            
+            // Xóa tất cả options hiện tại
+            displayDiv.innerHTML = '';
+            selectElement.innerHTML = '';
+            
+            if (filteredCustomers.length === 0) {
+                displayDiv.innerHTML = '<div class="multi-select-option text-muted">Không có khách hàng nào</div>';
+                return;
+            }
+            
+            filteredCustomers.forEach(customer => {
+                // Thêm vào select element (ẩn)
+                const option = document.createElement('option');
+                option.value = customer;
+                option.textContent = customer;
+                selectElement.appendChild(option);
+                
+                // Thêm vào display div
+                const displayOption = document.createElement('div');
+                displayOption.className = 'multi-select-option';
+                displayOption.textContent = customer;
+                displayOption.dataset.value = customer;
+                
+                // Đánh dấu nếu đã được chọn
+                if (selectedCustomers.has(customer)) {
+                    displayOption.classList.add('selected');
+                }
+                
+                // Thêm sự kiện click
+                displayOption.addEventListener('click', function() {
+                    const customerValue = this.dataset.value;
+                    
+                    if (selectedCustomers.has(customerValue)) {
+                        selectedCustomers.delete(customerValue);
+                        this.classList.remove('selected');
+                    } else {
+                        selectedCustomers.add(customerValue);
+                        this.classList.add('selected');
+                    }
+                    
+                    updateCustomerTags();
+                    updateSelectedCustomersCount();
+                });
+                
+                displayDiv.appendChild(displayOption);
+            });
+        }
+        
+        function filterCustomerOptions(searchTerm) {
+            const searchLower = searchTerm.toLowerCase().trim();
+            
+            if (searchLower === '') {
+                filteredCustomers = [...allCustomers];
+            } else {
+                filteredCustomers = allCustomers.filter(customer => 
+                    customer.toLowerCase().includes(searchLower)
+                );
+            }
+            
+            renderCustomerOptions();
+        }
+        
+        function applyCustomerFilter() {
+            if (selectedCustomers.size === 0) {
+                alert('Vui lòng chọn ít nhất một khách hàng từ danh sách (click vào tên khách hàng)');
+                return;
+            }
+            
+            // Tìm và chọn tất cả các dòng có khách hàng đã chọn trong kỳ này
+            currentPeriodData.forEach((row, index) => {
+                if (row['Khách hàng'] && selectedCustomers.has(row['Khách hàng'].toString().trim())) {
+                    selectedRows.add(index);
+                }
+            });
+            
+            // Hiển thị lại dữ liệu với các dòng đã chọn
+            displayCurrentData();
+            updatePreviousPeriodStats();
+            updateFilterInfo();
+            
+            // Lưu lên Firebase
+            if (database) {
+                saveDataToFirebase('selectedRows', Array.from(selectedRows));
+                saveDataToFirebase('selectedCustomers', Array.from(selectedCustomers));
+            }
+        }
+        
+        function selectAllCustomers() {
+            // Chọn tất cả khách hàng trong danh sách hiện tại
+            filteredCustomers.forEach(customer => {
+                selectedCustomers.add(customer);
+            });
+            
+            // Cập nhật hiển thị
+            renderCustomerOptions();
+            updateCustomerTags();
+            updateSelectedCustomersCount();
+        }
+        
+        function clearCustomerFilter() {
+            selectedCustomers.clear();
+            selectedRows.clear();
+            
+            // Cập nhật hiển thị
+            renderCustomerOptions();
+            updateCustomerTags();
+            updateSelectedCustomersCount();
+            displayCurrentData();
+            updatePreviousPeriodStats();
+            updateFilterInfo();
+            
+            // Lưu lên Firebase
+            if (database) {
+                saveDataToFirebase('selectedRows', []);
+                saveDataToFirebase('selectedCustomers', []);
+            }
+        }
+        
+        function updateCustomerTags() {
+            const tagsContainer = document.getElementById('selected-customers-tags');
+            tagsContainer.innerHTML = '';
+            
+            if (selectedCustomers.size === 0) {
+                tagsContainer.innerHTML = '<span class="text-muted">Chưa có khách hàng nào được chọn để loại trừ</span>';
+                return;
+            }
+            
+            selectedCustomers.forEach(customer => {
+                const tag = document.createElement('span');
+                tag.className = 'customer-tag';
+                tag.innerHTML = `
+                    ${customer}
+                    <span class="remove-tag" data-customer="${customer}">
+                        <i class="fas fa-times"></i>
+                    </span>
+                `;
+                tagsContainer.appendChild(tag);
+            });
+            
+            // Thêm sự kiện xóa tag
+            document.querySelectorAll('.remove-tag').forEach(tag => {
+                tag.addEventListener('click', function() {
+                    const customer = this.getAttribute('data-customer');
+                    selectedCustomers.delete(customer);
+                    
+                    // Xóa các dòng của khách hàng này khỏi selectedRows trong kỳ này
+                    currentPeriodData.forEach((row, index) => {
+                        if (row['Khách hàng'] && row['Khách hàng'].toString().trim() === customer) {
+                            selectedRows.delete(index);
+                        }
+                    });
+                    
+                    // Cập nhật hiển thị
+                    renderCustomerOptions();
+                    updateCustomerTags();
+                    updateSelectedCustomersCount();
+                    displayCurrentData();
+                    updatePreviousPeriodStats();
+                    updateFilterInfo();
+                    
+                    // Lưu lên Firebase
+                    if (database) {
+                        saveDataToFirebase('selectedRows', Array.from(selectedRows));
+                        saveDataToFirebase('selectedCustomers', Array.from(selectedCustomers));
+                    }
+                });
+            });
+        }
+        
+        function updateSelectedCustomersCount() {
+            document.getElementById('selected-customers-count').textContent = selectedCustomers.size;
+        }
+        
+        function updatePreviousPeriodStats() {
+            if (previousPeriodData.length === 0) return;
+            
+            // Tính toán thống kê kỳ trước
+            let totalRevenue = 0;
+            const uniqueEmployees = new Set();
+            let excludedCount = 0;
+            
+            // Tính tổng doanh thu và số nhân viên
+            previousPeriodData.forEach(row => {
+                // Kiểm tra nếu khách hàng này nằm trong danh sách loại trừ
+                if (row['Khách hàng'] && selectedCustomers.has(row['Khách hàng'].toString().trim())) {
+                    excludedCount++;
+                    return; // Bỏ qua dòng này
+                }
+                
+                // Áp dụng bộ lọc thuốc
+                if (currentFilter === 'drug' && row['Thuốc?'] !== true) return;
+                if (currentFilter === 'non-drug' && row['Thuốc?'] !== false) return;
+                
+                totalRevenue += parseFloat(row['Tổng tiền'] || 0);
+                if (row['Nhân viên']) {
+                    uniqueEmployees.add(row['Nhân viên'].toString().trim());
+                }
+            });
+            
+            // Hiển thị thống kê
+            document.getElementById('previous-total-revenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('previous-employee-count').textContent = uniqueEmployees.size;
+            document.getElementById('previous-excluded-count').textContent = `${excludedCount} khách hàng`;
+            
+            // Cập nhật info badge
+            const infoText = `${excludedCount > 0 ? 'Đang loại trừ ' + excludedCount + ' dòng' : 'Không loại trừ'}`;
+            document.getElementById('previous-table-info').textContent = infoText;
+        }
+        
+        function updateFilterInfo() {
+            const filterInfoDiv = document.getElementById('filter-info');
+            const filterInfoText = document.getElementById('filter-info-text');
+            
+            let infoText = '';
+            
+            // Thông tin bộ lọc thuốc
+            if (currentFilter === 'drug') {
+                infoText += 'Đang lọc: Chỉ tính đơn hàng có thuốc';
+            } else if (currentFilter === 'non-drug') {
+                infoText += 'Đang lọc: Chỉ tính đơn hàng không có thuốc';
+            } else {
+                infoText += 'Đang lọc: Tất cả đơn hàng';
+            }
+            
+            // Thông tin khách hàng loại trừ
+            if (selectedCustomers.size > 0) {
+                infoText += ` | Đang loại trừ: ${selectedCustomers.size} khách hàng`;
+            }
+            
+            filterInfoText.textContent = infoText;
+            filterInfoDiv.style.display = 'block';
+            
+            // Cập nhật info badge trên bảng
+            const currentInfo = selectedRows.size > 0 ? `Đang loại trừ ${selectedRows.size} dòng` : 'Không loại trừ';
+            document.getElementById('current-table-info').textContent = currentInfo;
+        }
+        
+        function showFileInfo(period, filename, rowCount) {
+            const infoDiv = document.getElementById(period + '-period-info');
+            const filenameSpan = document.getElementById(period + '-period-filename');
+            const rowcountSpan = document.getElementById(period + '-period-rowcount');
+            
+            infoDiv.style.display = 'block';
+            filenameSpan.textContent = filename;
+            rowcountSpan.textContent = rowCount + ' dòng';
+        }
+        
+        function showLoading(period, show) {
+            const loadingDiv = document.getElementById(period + '-period-loading');
+            loadingDiv.style.display = show ? 'block' : 'none';
+        }
+        
+        function showError(period, message) {
+            const errorDiv = document.getElementById(period + '-period-error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideError(period) {
+            const errorDiv = document.getElementById(period + '-period-error');
+            errorDiv.style.display = 'none';
+        }
+        
+        function displayCurrentData() {
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+            
+            // Áp dụng bộ lọc thuốc
+            filteredData = currentPeriodData.filter(row => {
+                if (currentFilter === 'drug') return row['Thuốc?'] === true;
+                if (currentFilter === 'non-drug') return row['Thuốc?'] === false;
+                return true;
+            });
+            
+            filteredData.forEach((row, displayIndex) => {
+                // Tìm index gốc trong currentPeriodData
+                const originalIndex = currentPeriodData.findIndex(r => 
+                    r['Mã'] === row['Mã'] && 
+                    r['Khách hàng'] === row['Khách hàng'] &&
+                    r['Tổng tiền'] === row['Tổng tiền'] &&
+                    r['Nhân viên'] === row['Nhân viên']
+                );
+                
+                const isExcluded = selectedRows.has(originalIndex);
+                const tr = document.createElement('tr');
+                if (isExcluded) tr.classList.add('excluded-row');
+                
+                tr.innerHTML = `
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input row-checkbox" type="checkbox" 
+                                   data-index="${originalIndex}" ${isExcluded ? 'checked' : ''}>
+                        </div>
+                    </td>
+                    <td>${row['Mã'] || ''}</td>
+                    <td>${row['Khách hàng'] || ''}</td>
+                    <td>${row['Nhân viên'] || 'Chưa xác định'}</td>
+                    <td>${formatCurrency(row['Tổng tiền'] || 0)}</td>
+                    <td>
+                        ${row['Thuốc?'] === true 
+                            ? '<span class="badge bg-success">Có</span>' 
+                            : '<span class="badge bg-secondary">Không</span>'}
+                    </td>
+                `;
+                
+                tableBody.appendChild(tr);
+            });
+            
+            // Cập nhật số lượng dòng
+            document.getElementById('total-count').textContent = filteredData.length;
+            updateSelectedCount();
+            
+            // Cập nhật checkbox "Chọn tất cả"
+            updateSelectAllCheckbox();
+            
+            // Thêm sự kiện cho checkbox
+            document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    const row = this.closest('tr');
+                    
+                    if (this.checked) {
+                        selectedRows.add(index);
+                        row.classList.add('excluded-row');
+                    } else {
+                        selectedRows.delete(index);
+                        row.classList.remove('excluded-row');
+                    }
+                    
+                    updateSelectedCount();
+                    updateSelectAllCheckbox();
+                    
+                    if (database) {
+                        saveDataToFirebase('selectedRows', Array.from(selectedRows));
+                    }
+                });
+            });
+            
+            updateFilterInfo();
+        }
+        
+        function updateSelectAllCheckbox() {
+            const allChecked = filteredData.length > 0 && 
+                filteredData.every((row, displayIndex) => {
+                    const originalIndex = currentPeriodData.findIndex(r => 
+                        r['Mã'] === row['Mã'] && 
+                        r['Khách hàng'] === row['Khách hàng'] &&
+                        r['Tổng tiền'] === row['Tổng tiền'] &&
+                        r['Nhân viên'] === row['Nhân viên']
+                    );
+                    return selectedRows.has(originalIndex);
+                });
+            
+            document.getElementById('select-all').checked = allChecked;
+        }
+        
+        function filterTable() {
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            
+            if (searchText === '' && currentFilter === 'all') {
+                displayCurrentData();
+                return;
+            }
+            
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+            
+            let filteredRows = currentPeriodData.filter(row => {
+                // Lọc theo bộ lọc thuốc
+                if (currentFilter === 'drug' && row['Thuốc?'] !== true) return false;
+                if (currentFilter === 'non-drug' && row['Thuốc?'] !== false) return false;
+                
+                // Lọc theo tìm kiếm
+                if (searchText) {
+                    const searchFields = [
+                        row['Mã'] || '',
+                        row['Khách hàng'] || '',
+                        row['Nhân viên'] || ''
+                    ];
+                    
+                    return searchFields.some(field => 
+                        field.toString().toLowerCase().includes(searchText)
+                    );
+                }
+                
+                return true;
+            });
+            
+            filteredData = filteredRows;
+            
+            filteredRows.forEach((row, displayIndex) => {
+                // Tìm index gốc trong currentPeriodData
+                const originalIndex = currentPeriodData.findIndex(r => 
+                    r['Mã'] === row['Mã'] && 
+                    r['Khách hàng'] === row['Khách hàng'] &&
+                    r['Tổng tiền'] === row['Tổng tiền'] &&
+                    r['Nhân viên'] === row['Nhân viên']
+                );
+                
+                const isExcluded = selectedRows.has(originalIndex);
+                const tr = document.createElement('tr');
+                if (isExcluded) tr.classList.add('excluded-row');
+                
+                tr.innerHTML = `
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input row-checkbox" type="checkbox" 
+                                   data-index="${originalIndex}" ${isExcluded ? 'checked' : ''}>
+                        </div>
+                    </td>
+                    <td>${row['Mã'] || ''}</td>
+                    <td>${row['Khách hàng'] || ''}</td>
+                    <td>${row['Nhân viên'] || 'Chưa xác định'}</td>
+                    <td>${formatCurrency(row['Tổng tiền'] || 0)}</td>
+                    <td>
+                        ${row['Thuốc?'] === true 
+                            ? '<span class="badge bg-success">Có</span>' 
+                            : '<span class="badge bg-secondary">Không</span>'}
+                    </td>
+                `;
+                
+                tableBody.appendChild(tr);
+            });
+            
+            // Cập nhật số lượng dòng
+            document.getElementById('total-count').textContent = filteredRows.length;
+            updateSelectedCount();
+            updateSelectAllCheckbox();
+            updateFilterInfo();
+            
+            // Thêm sự kiện cho checkbox
+            document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    const row = this.closest('tr');
+                    
+                    if (this.checked) {
+                        selectedRows.add(index);
+                        row.classList.add('excluded-row');
+                    } else {
+                        selectedRows.delete(index);
+                        row.classList.remove('excluded-row');
+                    }
+                    
+                    updateSelectedCount();
+                    updateSelectAllCheckbox();
+                    
+                    if (database) {
+                        saveDataToFirebase('selectedRows', Array.from(selectedRows));
+                    }
+                });
+            });
+        }
+        
+        function updateSelectedCount() {
+            const selectedCount = Array.from(selectedRows).filter(index => 
+                index < currentPeriodData.length && index >= 0
+            ).length;
+            document.getElementById('selected-count').textContent = selectedCount;
+        }
+        
+        function analyzeKPI() {
+            if (currentPeriodData.length === 0) {
+                alert('Vui lòng tải file đơn hàng kỳ này trước!');
+                return;
+            }
+            
+            if (previousPeriodData.length === 0) {
+                alert('Vui lòng tải file đơn hàng kỳ trước trước!');
+                return;
+            }
+            
+            // Lấy dữ liệu đã lọc (loại trừ các dòng đã tích chọn và khách hàng đã chọn) - KỲ NÀY
+            const filteredCurrentData = currentPeriodData.filter((row, index) => {
+                // Loại trừ nếu được chọn thủ công
+                if (selectedRows.has(index)) return false;
+                
+                // Loại trừ nếu khách hàng nằm trong danh sách loại trừ
+                if (row['Khách hàng'] && selectedCustomers.has(row['Khách hàng'].toString().trim())) return false;
+                
+                // Áp dụng bộ lọc thuốc
+                if (currentFilter === 'drug' && row['Thuốc?'] !== true) return false;
+                if (currentFilter === 'non-drug' && row['Thuốc?'] !== false) return false;
+                
+                return true;
+            });
+            
+            // Lấy dữ liệu đã lọc (loại trừ các khách hàng đã chọn) - KỲ TRƯỚC
+            const filteredPreviousData = previousPeriodData.filter(row => {
+                // Loại trừ nếu khách hàng nằm trong danh sách loại trừ
+                if (row['Khách hàng'] && selectedCustomers.has(row['Khách hàng'].toString().trim())) return false;
+                
+                // Áp dụng bộ lọc thuốc
+                if (currentFilter === 'drug' && row['Thuốc?'] !== true) return false;
+                if (currentFilter === 'non-drug' && row['Thuốc?'] !== false) return false;
+                
+                return true;
+            });
+            
+            // Tính toán doanh thu theo nhân viên - KỲ NÀY
+            const revenueByEmployee = {};
+            
+            filteredCurrentData.forEach(row => {
+                const employee = row['Nhân viên'] || 'Không xác định';
+                const amount = parseFloat(row['Tổng tiền']) || 0;
+                
+                if (!revenueByEmployee[employee]) {
+                    revenueByEmployee[employee] = {
+                        currentRevenue: 0,
+                        previousRevenue: 0,
+                        currentCount: 0,
+                        previousCount: 0
+                    };
+                }
+                
+                revenueByEmployee[employee].currentRevenue += amount;
+                revenueByEmployee[employee].currentCount += 1;
+            });
+            
+            // Tính toán doanh thu theo nhân viên - KỲ TRƯỚC
+            filteredPreviousData.forEach(row => {
+                const employee = row['Nhân viên'] || 'Không xác định';
+                const amount = parseFloat(row['Tổng tiền']) || 0;
+                
+                if (!revenueByEmployee[employee]) {
+                    revenueByEmployee[employee] = {
+                        currentRevenue: 0,
+                        previousRevenue: 0,
+                        currentCount: 0,
+                        previousCount: 0
+                    };
+                }
+                
+                revenueByEmployee[employee].previousRevenue += amount;
+                revenueByEmployee[employee].previousCount += 1;
+            });
+            
+            // Tính tổng doanh thu
+            let totalCurrentRevenue = 0;
+            let totalPreviousRevenue = 0;
+            let totalCurrentCount = 0;
+            let totalPreviousCount = 0;
+            
+            Object.keys(revenueByEmployee).forEach(employee => {
+                totalCurrentRevenue += revenueByEmployee[employee].currentRevenue;
+                totalPreviousRevenue += revenueByEmployee[employee].previousRevenue;
+                totalCurrentCount += revenueByEmployee[employee].currentCount;
+                totalPreviousCount += revenueByEmployee[employee].previousCount;
+            });
+            
+            // Hiển thị tổng kết KPI
+            document.getElementById('kpi-summary').style.display = 'flex';
+            document.getElementById('total-current-revenue').textContent = formatCurrency(totalCurrentRevenue);
+            document.getElementById('total-previous-revenue').textContent = formatCurrency(totalPreviousRevenue);
+            
+            const totalGrowth = totalPreviousRevenue > 0 
+                ? ((totalCurrentRevenue - totalPreviousRevenue) / totalPreviousRevenue * 100).toFixed(2)
+                : totalCurrentRevenue > 0 ? '100.00' : '0.00';
+            
+            document.getElementById('total-growth').textContent = `${totalGrowth}%`;
+            document.getElementById('employee-count').textContent = Object.keys(revenueByEmployee).length;
+            
+            // Hiển thị thông tin chi tiết
+            document.getElementById('current-revenue-info').textContent = `${totalCurrentCount} đơn hàng`;
+            document.getElementById('current-revenue-info').style.display = 'inline-block';
+            
+            document.getElementById('previous-revenue-info').textContent = `${totalPreviousCount} đơn hàng`;
+            document.getElementById('previous-revenue-info').style.display = 'inline-block';
+            
+            document.getElementById('employee-info').textContent = `${Object.keys(revenueByEmployee).length} người`;
+            document.getElementById('employee-info').style.display = 'inline-block';
+            
+            // Hiển thị kết quả phân tích
+            const kpiBody = document.getElementById('kpi-body');
+            kpiBody.innerHTML = '';
+            
+            Object.keys(revenueByEmployee).forEach(employee => {
+                const data = revenueByEmployee[employee];
+                const growth = data.previousRevenue > 0 
+                    ? ((data.currentRevenue - data.previousRevenue) / data.previousRevenue * 100)
+                    : data.currentRevenue > 0 ? 100 : 0;
+                
+                const growthClass = growth >= 0 ? 'growth-positive' : 'growth-negative';
+                const growthDisplay = growth >= 0 ? `+${growth.toFixed(2)}%` : `${growth.toFixed(2)}%`;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${employee}</strong></td>
+                    <td>
+                        ${formatCurrency(data.currentRevenue)}
+                        <div class="small text-muted">${data.currentCount} đơn</div>
+                    </td>
+                    <td>
+                        ${formatCurrency(data.previousRevenue)}
+                        <div class="small text-muted">${data.previousCount} đơn</div>
+                    </td>
+                    <td>${formatCurrency(data.currentRevenue - data.previousRevenue)}</td>
+                    <td class="${growthClass}">${growthDisplay}</td>
+                    <td>
+                        ${data.previousCount === 0 && data.currentCount > 0 ? 
+                            '<span class="badge bg-success">Khách hàng mới</span>' : ''}
+                        ${data.currentCount === 0 && data.previousCount > 0 ? 
+                            '<span class="badge bg-warning">Không còn giao dịch</span>' : ''}
+                    </td>
+                `;
+                
+                kpiBody.appendChild(tr);
+            });
+            
+            // Lưu kết quả phân tích lên Firebase
+            if (database) {
+                saveDataToFirebase('kpiResults', {
+                    revenueByEmployee,
+                    totalCurrentRevenue,
+                    totalPreviousRevenue,
+                    totalCurrentCount,
+                    totalPreviousCount,
+                    totalGrowth: parseFloat(totalGrowth),
+                    currentFilter: currentFilter,
+                    selectedCustomers: Array.from(selectedCustomers),
+                    timestamp: new Date().toISOString()
+                });
+            }
+        }
+        
+        function formatCurrency(amount) {
+            if (isNaN(amount)) amount = 0;
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+        
+        function saveDataToFirebase(key, data) {
+            if (!database) return;
+            
+            try {
+                database.ref(key).set(data)
+                    .then(() => console.log(`Dữ liệu đã lưu lên Firebase: ${key}`))
+                    .catch(error => console.error('Lỗi khi lưu lên Firebase:', error));
+            } catch (error) {
+                console.error('Lỗi kết nối Firebase:', error);
+            }
+        }
+        
+        function loadDataFromFirebase() {
+            if (!database) {
+                console.log("Firebase không khả dụng, bỏ qua tải dữ liệu từ Firebase");
+                return;
+            }
+            
+            // Tải dữ liệu đã lưu từ Firebase
+            database.ref('currentPeriodData').once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        currentPeriodData = snapshot.val();
+                        if (currentPeriodData && currentPeriodData.length > 0) {
+                            showFileInfo('current', 'Đã tải từ lưu trữ', currentPeriodData.length);
+                            displayCurrentData();
+                            updateCustomerList();
+                        }
+                    }
+                })
+                .catch(error => console.error('Lỗi tải dữ liệu kỳ này:', error));
+            
+            database.ref('previousPeriodData').once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        previousPeriodData = snapshot.val();
+                        if (previousPeriodData && previousPeriodData.length > 0) {
+                            showFileInfo('previous', 'Đã tải từ lưu trữ', previousPeriodData.length);
+                            updatePreviousPeriodStats();
+                        }
+                    }
+                })
+                .catch(error => console.error('Lỗi tải dữ liệu kỳ trước:', error));
+            
+            database.ref('selectedRows').once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const rows = snapshot.val();
+                        if (rows && Array.isArray(rows)) {
+                            selectedRows = new Set(rows);
+                            updateSelectedCount();
+                        }
+                    }
+                })
+                .catch(error => console.error('Lỗi tải selectedRows:', error));
+            
+            database.ref('selectedCustomers').once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const customers = snapshot.val();
+                        if (customers && Array.isArray(customers)) {
+                            selectedCustomers = new Set(customers);
+                            updateCustomerTags();
+                            updateSelectedCustomersCount();
+                            updateFilterInfo();
+                        }
+                    }
+                })
+                .catch(error => console.error('Lỗi tải selectedCustomers:', error));
+            
+            database.ref('kpiResults').once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) {
+                        const kpiResults = snapshot.val();
+                        // Hiển thị kết quả KPI nếu có
+                        if (kpiResults && kpiResults.revenueByEmployee) {
+                            // Áp dụng bộ lọc đã lưu
+                            if (kpiResults.currentFilter) {
+                                currentFilter = kpiResults.currentFilter;
+                                document.querySelectorAll('.filter-btn').forEach(btn => {
+                                    btn.classList.remove('active');
+                                    if (btn.getAttribute('data-filter') === currentFilter) {
+                                        btn.classList.add('active');
+                                    }
+                                });
+                            }
+                            
+                            // Áp dụng danh sách khách hàng đã lưu
+                            if (kpiResults.selectedCustomers) {
+                                selectedCustomers = new Set(kpiResults.selectedCustomers);
+                                updateCustomerTags();
+                                updateSelectedCustomersCount();
+                            }
+                            
+                            displayKPISummary(kpiResults);
+                        }
+                    }
+                })
+                .catch(error => console.error('Lỗi tải kpiResults:', error));
+        }
+        
+        function displayKPISummary(kpiResults) {
+            document.getElementById('kpi-summary').style.display = 'flex';
+            document.getElementById('total-current-revenue').textContent = formatCurrency(kpiResults.totalCurrentRevenue || 0);
+            document.getElementById('total-previous-revenue').textContent = formatCurrency(kpiResults.totalPreviousRevenue || 0);
+            document.getElementById('total-growth').textContent = `${parseFloat(kpiResults.totalGrowth || 0).toFixed(2)}%`;
+            document.getElementById('employee-count').textContent = Object.keys(kpiResults.revenueByEmployee || {}).length;
+            
+            // Hiển thị thông tin chi tiết
+            if (kpiResults.totalCurrentCount) {
+                document.getElementById('current-revenue-info').textContent = `${kpiResults.totalCurrentCount} đơn hàng`;
+                document.getElementById('current-revenue-info').style.display = 'inline-block';
+            }
+            
+            if (kpiResults.totalPreviousCount) {
+                document.getElementById('previous-revenue-info').textContent = `${kpiResults.totalPreviousCount} đơn hàng`;
+                document.getElementById('previous-revenue-info').style.display = 'inline-block';
+            }
+            
+            document.getElementById('employee-info').textContent = `${Object.keys(kpiResults.revenueByEmployee || {}).length} người`;
+            document.getElementById('employee-info').style.display = 'inline-block';
+            
+            // Hiển thị kết quả phân tích
+            const kpiBody = document.getElementById('kpi-body');
+            kpiBody.innerHTML = '';
+            
+            Object.keys(kpiResults.revenueByEmployee || {}).forEach(employee => {
+                const data = kpiResults.revenueByEmployee[employee];
+                const growth = data.previousRevenue > 0 
+                    ? ((data.currentRevenue - data.previousRevenue) / data.previousRevenue * 100)
+                    : data.currentRevenue > 0 ? 100 : 0;
+                
+                const growthClass = growth >= 0 ? 'growth-positive' : 'growth-negative';
+                const growthDisplay = growth >= 0 ? `+${growth.toFixed(2)}%` : `${growth.toFixed(2)}%`;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${employee}</strong></td>
+                    <td>
+                        ${formatCurrency(data.currentRevenue)}
+                        <div class="small text-muted">${data.currentCount || 0} đơn</div>
+                    </td>
+                    <td>
+                        ${formatCurrency(data.previousRevenue)}
+                        <div class="small text-muted">${data.previousCount || 0} đơn</div>
+                    </td>
+                    <td>${formatCurrency(data.currentRevenue - data.previousRevenue)}</td>
+                    <td class="${growthClass}">${growthDisplay}</td>
+                    <td>
+                        ${(data.previousCount === 0 || !data.previousCount) && data.currentCount > 0 ? 
+                            '<span class="badge bg-success">Khách hàng mới</span>' : ''}
+                        ${data.currentCount === 0 && data.previousCount > 0 ? 
+                            '<span class="badge bg-warning">Không còn giao dịch</span>' : ''}
+                    </td>
+                `;
+                
+                kpiBody.appendChild(tr);
+            });
+        }
+        
+        function resetApp() {
+            if (!confirm('Bạn có chắc chắn muốn reset toàn bộ dữ liệu?')) {
+                return;
+            }
+            
+            currentPeriodData = [];
+            previousPeriodData = [];
+            selectedRows = new Set();
+            selectedCustomers = new Set();
+            allCustomers = [];
+            filteredCustomers = [];
+            currentFilter = 'all';
+            
+            document.getElementById('table-body').innerHTML = '';
+            document.getElementById('kpi-body').innerHTML = '';
+            
+            // Reset file info displays
+            ['current', 'previous'].forEach(period => {
+                document.getElementById(period + '-period-info').style.display = 'none';
+                document.getElementById(period + '-period-filename').textContent = '';
+                document.getElementById(period + '-period-rowcount').textContent = '';
+                document.getElementById(period + '-period-error').style.display = 'none';
+                document.getElementById(period + '-period-loading').style.display = 'none';
+                document.getElementById(period + '-period-file').value = '';
+            });
+            
+            document.getElementById('search-input').value = '';
+            document.getElementById('customer-search-input').value = '';
+            document.getElementById('kpi-summary').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = true;
+            document.getElementById('select-all').checked = false;
+            
+            // Reset customer search
+            document.getElementById('customer-select-display').innerHTML = '';
+            document.getElementById('selected-customers-tags').innerHTML = 
+                '<span class="text-muted">Chưa có khách hàng nào được chọn để loại trừ</span>';
+            document.getElementById('selected-customers-count').textContent = '0';
+            
+            // Reset filter info
+            document.getElementById('filter-info').style.display = 'none';
+            document.getElementById('current-table-info').textContent = '';
+            document.getElementById('previous-table-info').textContent = '';
+            
+            // Reset previous period stats
+            document.getElementById('previous-total-revenue').textContent = '0 VND';
+            document.getElementById('previous-employee-count').textContent = '0';
+            document.getElementById('previous-excluded-count').textContent = '0 khách hàng';
+            
+            // Reset info badges
+            ['current-revenue-info', 'previous-revenue-info', 'growth-info', 'employee-info'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            
+            document.querySelectorAll('.filter-btn').forEach((btn, index) => {
+                if (index === 0) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            document.getElementById('total-count').textContent = '0';
+            document.getElementById('selected-count').textContent = '0';
+            
+            // Xóa dữ liệu trên Firebase
+            if (database) {
+                database.ref('currentPeriodData').remove();
+                database.ref('previousPeriodData').remove();
+                database.ref('selectedRows').remove();
+                database.ref('selectedCustomers').remove();
+                database.ref('kpiResults').remove();
+            }
+        }
+    </script>
+</body>
+</html>
