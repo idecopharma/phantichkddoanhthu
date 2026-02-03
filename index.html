@@ -216,6 +216,63 @@
             display: flex;
             align-items: center;
         }
+
+        /* Excluded Customers Table */
+        .excluded-summary-widget {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 8px;
+            background: #fff8e1;
+            border: 1px solid #ffd54f;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .excluded-summary-widget:hover {
+            background: #ffecb3;
+        }
+
+        .excluded-details {
+            display: none;
+            margin-top: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .excluded-details.show {
+            display: block;
+        }
+
+        .excluded-table {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        .excluded-table th {
+            background-color: #f5f5f5;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .excluded-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .excluded-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .excluded-table .total-row {
+            background-color: #fff3e0;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -352,7 +409,51 @@
                             </div>
                         </div>
 
-                        <div class="d-grid">
+                        <!-- Thêm phần hiển thị doanh thu loại trừ -->
+                        <div id="excluded-summary-container" style="display: none;">
+                            <div class="excluded-summary-widget" onclick="toggleExcludedDetails()">
+                                <div class="stat-content">
+                                    <p class="text-warning mb-1"><i class="fas fa-eye-slash me-1"></i> Doanh Thu Bị Loại Trừ</p>
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <small class="text-muted">Kỳ này:</small>
+                                            <span id="excluded-current-total" class="fw-bold text-dark ms-1">0 ₫</span>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted">Kỳ trước:</small>
+                                            <span id="excluded-previous-total" class="fw-bold text-dark ms-1">0 ₫</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat-icon" style="background-color: #fff3cd; color: #856404;">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                            </div>
+                            
+                            <div id="excluded-details" class="excluded-details">
+                                <table class="excluded-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Khách hàng</th>
+                                            <th class="text-end">Kỳ này</th>
+                                            <th class="text-end">Kỳ trước</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="excluded-details-body">
+                                        <!-- Dữ liệu sẽ được thêm bằng JS -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td><strong>Tổng cộng</strong></td>
+                                            <td class="text-end"><strong id="excluded-total-current">0 ₫</strong></td>
+                                            <td class="text-end"><strong id="excluded-total-previous">0 ₫</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-3">
                             <button class="btn btn-success fw-bold" onclick="analyzeKPI()">
                                 <i class="fas fa-sync-alt me-2"></i> CẬP NHẬT PHÂN TÍCH
                             </button>
@@ -505,7 +606,7 @@
             }
         }
 
-        // === 4. LOGIC PHÂN TÍCH (CORE) ===
+        // === 4. LOGIC PHÂN TÍCH (CORE) - CẬP NHẬT ===
         function analyzeKPI(shouldSaveFilter = true) {
             // Update UI badge
             const badge = document.getElementById('filter-display-badge');
@@ -525,6 +626,7 @@
                 return val === true || val === 'TRUE' || val === 'True' || val === 1;
             };
 
+            // Hàm lọc dữ liệu cho báo cáo chính
             const filterData = (data) => {
                 return data.filter(row => {
                     const custName = row['Khách hàng'] ? row['Khách hàng'].toString().trim() : '';
@@ -536,10 +638,27 @@
                 });
             };
 
+            // Hàm lấy dữ liệu KH bị loại trừ
+            const getExcludedData = (data) => {
+                return data.filter(row => {
+                    const custName = row['Khách hàng'] ? row['Khách hàng'].toString().trim() : '';
+                    return excludedCustomers.includes(custName);
+                });
+            };
+
             const filteredCurrent = filterData(currentPeriodData);
             const filteredPrevious = filterData(previousPeriodData);
+            
+            // Lấy dữ liệu KH loại trừ
+            const excludedCurrent = getExcludedData(currentPeriodData);
+            const excludedPrevious = getExcludedData(previousPeriodData);
 
-            // Tính toán
+            // Tính toán và hiển thị
+            calculateAndRenderStats(filteredCurrent, filteredPrevious);
+            renderExcludedDetails(excludedCurrent, excludedPrevious);
+        }
+
+        function calculateAndRenderStats(filteredCurrent, filteredPrevious) {
             const stats = {};
             const aggregate = (list, type) => {
                 list.forEach(row => {
@@ -634,9 +753,86 @@
             document.getElementById('sum-emp').innerText = empSet.size;
         }
 
-        // === 6. HELPER FUNCTIONS ===
+        // === 6. HIỂN THỊ DOANH THU LOẠI TRỪ (MỚI) ===
+        function renderExcludedDetails(excludedCurrent, excludedPrevious) {
+            const container = document.getElementById('excluded-summary-container');
+            
+            if (excludedCustomers.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            // Tính tổng doanh thu loại trừ
+            const totalCurrentExcluded = excludedCurrent.reduce((sum, row) => sum + (parseFloat(row['Tổng tiền']) || 0), 0);
+            const totalPreviousExcluded = excludedPrevious.reduce((sum, row) => sum + (parseFloat(row['Tổng tiền']) || 0), 0);
+            
+            // Cập nhật tổng
+            document.getElementById('excluded-current-total').innerText = formatMoney(totalCurrentExcluded);
+            document.getElementById('excluded-previous-total').innerText = formatMoney(totalPreviousExcluded);
+            
+            // Nhóm dữ liệu theo khách hàng
+            const customerStats = {};
+            
+            // Xử lý dữ liệu kỳ này
+            excludedCurrent.forEach(row => {
+                const custName = row['Khách hàng'] ? row['Khách hàng'].toString().trim() : 'Chưa xác định';
+                const money = parseFloat(row['Tổng tiền']) || 0;
+                
+                if (!customerStats[custName]) {
+                    customerStats[custName] = { current: 0, previous: 0, countCurrent: 0, countPrevious: 0 };
+                }
+                customerStats[custName].current += money;
+                customerStats[custName].countCurrent++;
+            });
+            
+            // Xử lý dữ liệu kỳ trước
+            excludedPrevious.forEach(row => {
+                const custName = row['Khách hàng'] ? row['Khách hàng'].toString().trim() : 'Chưa xác định';
+                const money = parseFloat(row['Tổng tiền']) || 0;
+                
+                if (!customerStats[custName]) {
+                    customerStats[custName] = { current: 0, previous: 0, countCurrent: 0, countPrevious: 0 };
+                }
+                customerStats[custName].previous += money;
+                customerStats[custName].countPrevious++;
+            });
+            
+            // Hiển thị chi tiết
+            const tbody = document.getElementById('excluded-details-body');
+            tbody.innerHTML = '';
+            
+            Object.keys(customerStats).sort().forEach(custName => {
+                const stats = customerStats[custName];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${custName}</td>
+                    <td class="text-end">
+                        <div>${formatMoney(stats.current)}</div>
+                        <small class="text-muted" style="font-size:0.7rem">${stats.countCurrent} đơn</small>
+                    </td>
+                    <td class="text-end">
+                        <div>${formatMoney(stats.previous)}</div>
+                        <small class="text-muted" style="font-size:0.7rem">${stats.countPrevious} đơn</small>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Cập nhật tổng cộng
+            document.getElementById('excluded-total-current').innerText = formatMoney(totalCurrentExcluded);
+            document.getElementById('excluded-total-previous').innerText = formatMoney(totalPreviousExcluded);
+        }
+
+        // === 7. HELPER FUNCTIONS ===
         function formatMoney(n) {
             return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+        }
+
+        function toggleExcludedDetails() {
+            const detailsDiv = document.getElementById('excluded-details');
+            detailsDiv.classList.toggle('show');
         }
 
         // Search Suggestion Logic
@@ -710,7 +906,7 @@
                 if(btn.dataset.type === currentFilter) {
                     btn.classList.add('active');
                     btn.classList.remove('btn-outline-secondary');
-                    btn.classList.add('btn-danger'); // Use red for active
+                    btn.classList.add('btn-danger');
                 } else {
                     btn.classList.remove('active', 'btn-danger');
                     btn.classList.add('btn-outline-secondary');
